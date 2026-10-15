@@ -9,6 +9,7 @@ fileName: SalaamRasheeda-Final Project-Intro to Data Science.rmd
 library(tidyverse)
 library(ComplexHeatmap)
 library(circlize)
+library(uwot)
 ```
 
 <!-- -->
@@ -93,8 +94,9 @@ create_plots <- function(first_gene_expression,
       ) +
     theme_minimal() +
     theme(plot.margin = margin(15, 15, 15, 15), # I want the plot to have 
-          # padding
-          plot.title = element_text(face = "bold")) + # Embolden plot title
+          # padding, including above title
+          plot.title = element_text(face = "bold",
+                                    margin = margin(t = 20, b = 10))) +
     scale_x_continuous(breaks = seq(0, 300000, by = 50000))
   
   
@@ -144,7 +146,8 @@ create_plots <- function(first_gene_expression,
   ) +
   theme_minimal() +
   theme(plot.margin = margin(15, 15, 15, 15),
-        plot.title = element_text(face = "bold"))
+        plot.title = element_text(face = "bold",
+                                  margin = margin(t = 20, b = 10)))
   
   
   # Violin Plot
@@ -192,16 +195,17 @@ create_plots <- function(first_gene_expression,
         hjust = 1,
         size = 8),
       plot.margin = margin(15, 15, 15, 15),
-      plot.title = element_text(face = "bold"))
+      plot.title = element_text(face = "bold",
+                                margin = margin(t = 20, b = 10)))
   
   # Arrange plots
   all_plots <- ggarrange(ggarrange(hist_plot, scatter_plot,
                                    ncol = 2,
-                                   labels = c("3A", "3B")),
+                                   labels = c("Figure 4", "Figure 5")),
                          violin_plot,
                          nrow = 2,
                          heights = c(1, 1.5), # Make violin plot larger
-                         labels = c("", "3C"))
+                         labels = c("", "Figure 6"))
   
   return(all_plots)
 }
