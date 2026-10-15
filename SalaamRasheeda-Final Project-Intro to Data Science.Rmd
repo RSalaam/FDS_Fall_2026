@@ -1,0 +1,470 @@
+---
+title: "Final Project - Intro to Data Science"
+output: pdf_document
+date: "2026-09-29"
+fileName: SalaamRasheeda-Final Project-Intro to Data Science.rmd
+---
+
+```{r}
+library(tidyverse)
+library(ComplexHeatmap)
+library(circlize)
+```
+
+<!-- -->
+
+1.  **Downloaded data**
+
+```{r}
+# Explanation: I want to load the count data. I also want to generate some
+# initial variables that I expect to use across code blocks.
+
+tcga_data <- read.csv(file = "counts.csv", row.names = 1) # Read data from 
+#"counts" CSV
+
+# Check for any NAs in counts
+sum(is.na(tcga_data))
+
+esr1_gene <- tcga_data["ENSG00000091831",] # Instantiate expression values 
+# for my gene of choice
+
+esr1_numeric <- as.numeric(esr1_gene) # Instantiate numeric vector of 
+# expression values for use throughout interpretations, as needed
+
+erbb2_gene <- tcga_data["ENSG00000141736",] # Instantiate expression 
+#values for my other gene of choice
+
+erbb2_numeric <- as.numeric(erbb2_gene) # " " re: expression values
+```
+
+2)  **Summary Statistics**
+
+```{r}
+# Explanation: I want to generate summary statistics in a tidy way
+
+summary_stats <- tibble(expression = esr1_numeric) %>% # Create data frame 
+  # of numeric vector
+  summarize( # Generate summary statistics with summarize() function
+    mean = mean(expression, na.rm = TRUE),
+    median = median(expression, na.rm = TRUE),
+    sd = sd(expression, na.rm = TRUE),
+    min = min(expression, na.rm = TRUE),
+    max = max(expression, na.rm = TRUE)
+  )
+
+summary_stats # Return the statistical data
+```
+
+3)  **Visualization**
+
+<!-- -->
+
+```{r}
+# Explanation: I want a function to create the histogram, scatter, and violin plots.
+# Since each plot function has a lot of similar data, and we're only working in
+# this file, we can create a function that generates all 3 plots.
+
+library(ggpubr) # Since not part of the tidyverse, and we need ggarrange() below
+
+create_plots <- function(first_gene_expression,
+                         first_gene_name,
+                         second_gene_name,
+                         second_gene_numeric,
+                         metadata,
+                         fill_or_color = "#1B9E77") {
+  
+  # Because we want to make a new vector from the argument passed
+  first_gene_numeric <- as.numeric(first_gene_expression)
+  
+  # Histogram
+  hist_plot <- ggplot(
+    data.frame(expression = first_gene_numeric),
+    aes (x = expression)
+  ) +
+    
+    geom_histogram(bins = 30,
+                 alpha = 0.8,
+                 fill = fill_or_color,
+                 color = "black") +
+    labs(
+      title = paste("Distribution of", first_gene_name, "Expression"),
+      x = "Gene explression value",
+      y = "Frequency"
+      ) +
+    theme_minimal() +
+    theme(plot.margin = margin(15, 15, 15, 15), # I want the plot to have 
+          # padding
+          plot.title = element_text(face = "bold")) + # Embolden plot title
+    scale_x_continuous(breaks = seq(0, 300000, by = 50000))
+  
+  
+  # Scatter plot
+  scatter_df <- data.frame(
+    Gene_1 = first_gene_numeric,
+    Gene_2 = second_gene_numeric
+  )
+  
+  scatter_plot <- ggplot(
+    scatter_df,
+    aes(x = Gene_1, y = Gene_2)
+  ) +
+    geom_point( # Apply scatter geometry
+    color = fill_or_color,
+    alpha = 0.6
+  ) +
+    
+    # Add a regression line to the scatter plot
+    geom_smooth(
+      method = "lm",
+      se = FALSE,
+      color = "red",
+      linewidth = 1) +
+    
+    # Add correlation annotation to show significance (bottom right)
+    # I learned this method from Microsoft Copilot
+    stat_cor(
+      label.x.npc = 0.50,
+      label.y.npc = 0.05,
+      color = "red") +
+  
+  # Since the expression ranges are so large, I want to log them in order 
+  # to visualize/interpret the data more efficiently
+  scale_x_log10(
+    breaks = c(10, 100, 1000, 10000, 100000),
+    labels = c("10", "100", "1,000", "10,000", "100,000")
+  ) +
+  scale_y_log10(
+    breaks = c(1000, 10000, 100000, 1000000),
+    labels = c("1,000", "10,000", "100,000", "1,000,000")
+  ) +
+  labs(
+    title = paste(first_gene_name, "vs", second_gene_name, "Expression Across Patient Samples"),
+    x = paste(first_gene_name, "Expression (log10 scale)"),
+    y = paste(second_gene_name, "Expression (log10 scale)")
+  ) +
+  theme_minimal() +
+  theme(plot.margin = margin(15, 15, 15, 15),
+        plot.title = element_text(face = "bold"))
+  
+  
+  # Violin Plot
+  violin_data_frame <- tibble(
+    
+    # head(names(esr1_gene)) returns samples with a period separator. In 
+    # order to match the metadata barcodes, we have to turn each period 
+    # into a hyphen
+    barcode = gsub("\\.", "-", names(first_gene_expression)),
+    expression = first_gene_numeric
+    ) %>%
+    inner_join(
+      metadata %>%
+      select(barcode, ajcc_pathologic_stage),
+      by = "barcode"
+      ) %>%
+    
+    # The data have some NAs and X's in the ajcc_pathologic_stage column, 
+    # which we want to filter out
+    filter(!is.na(ajcc_pathologic_stage),
+           ajcc_pathologic_stage != "Stage X")
+  
+  violin_plot <- ggplot(violin_data_frame,
+                      aes(x = ajcc_pathologic_stage,
+                          y = expression)) +
+    geom_violin(fill = fill_or_color,
+                alpha = 0.7) +
+    geom_boxplot( # Add boxplots to visualize distribution of data,
+      # with outliers colored red
+      width = 0.1,
+      fill = "white",
+      outlier.size = 0.5,
+      outlier.color = "red") +
+    scale_y_log10(
+      breaks = c(10, 100, 1000, 10000, 100000),
+      labels = c("10", "100", "1,000", "10,000", "100,000")
+      ) +
+    labs(title = paste(first_gene_name, "Expression by Pathologic Stage"),
+         x = "Pathologic Stage",
+         y = paste(first_gene_name, "Expression (log10 scale)")) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(
+        angle = 45,
+        hjust = 1,
+        size = 8),
+      plot.margin = margin(15, 15, 15, 15),
+      plot.title = element_text(face = "bold"))
+  
+  # Arrange plots
+  all_plots <- ggarrange(ggarrange(hist_plot, scatter_plot,
+                                   ncol = 2,
+                                   labels = c("3A", "3B")),
+                         violin_plot,
+                         nrow = 2,
+                         heights = c(1, 1.5), # Make violin plot larger
+                         labels = c("", "3C"))
+  
+  return(all_plots)
+}
+```
+
+#'s 3A. through 3C.
+
+```{r}
+# Explanation: Now, I need to call the function with the data for each plot to
+# generate the final plots. Thereafter, I save the plots to a PNG.
+
+# I need to fetch the metadata to generate the violin plot
+tcga_meta_data <- read.csv(file = "meta_data.csv")
+
+final_plots <- create_plots(
+  first_gene_expression = esr1_gene,
+  first_gene_name = "ESR1",
+  second_gene_name = "ERBB2",
+  second_gene_numeric = erbb2_numeric,
+  metadata = tcga_meta_data
+)
+
+final_plots
+
+ggsave(
+  filename = "SalaamRasheeda-Final Project Check-In Plots.png",
+  plot = final_plots,
+  width = 12,
+  height = 8,
+  dpi = 300
+)
+```
+
+3D. Heatmap Analysis
+
+```{r}
+# Explanation: We have over 1,000 samples, so the heatmap will look busy. 
+# I've done my best to allow for some readbility by structuring 
+# the covariate colors to separate into broader pathologic stages.
+
+# Select 10 consecutive genes, starting from ENSG00000091831-- my chosen 
+# ESR1 gene
+which(rownames(tcga_data) == "ENSG00000091831.24")
+ten_genes <- rownames(tcga_data)[1944:1953]
+
+# Filter covariate data to exclude NAs and X's
+filtered_tcga_meta_data <- tcga_meta_data %>%
+  filter(
+    !is.na(ajcc_pathologic_stage),
+    ajcc_pathologic_stage != "Stage X"
+  )
+
+# In counts data, replace period delimiter with hyphens
+count_barcodes <- gsub("\\.", "-", colnames(tcga_data))
+
+# Grab matching rows from filtered data to create subset below
+samples_to_keep <- filtered_tcga_meta_data$barcode
+
+# Subset these 10 genes into a data frame
+tcga_data_subset <- tcga_data[
+  ten_genes,
+  count_barcodes %in% samples_to_keep
+  ]
+
+# Convert Ensemble IDs to common gene names
+# for readability in heatmap
+common_names <- c(
+  "ENSG00000091831.24" = "ESR1",
+  "ENSG00000091844.8" = "RGS17",
+  "ENSG00000091879.14" = "ANGPT2",
+  "ENSG00000091947.10" = "TMEM101",
+  "ENSG00000091972.18" = "CD200",
+  "ENSG00000091986.16" = "CCDC80",
+  "ENSG00000092009.10" = "CMA1",
+  "ENSG00000092010.15" = "PSME1",
+  "ENSG00000092020.10" = "PPP2R3C",
+  "ENSG00000092036.18" = "HAUS4"
+)
+rownames(tcga_data_subset) <- common_names[rownames(tcga_data_subset)]
+
+# Get log of expression values for better readability for Heatmap() below
+log_counts <- log10(tcga_data_subset + 1)
+
+# Create heatmap annotations
+ha_column <- HeatmapAnnotation(
+  Pathologic_Stage = filtered_tcga_meta_data$ajcc_pathologic_stage,
+  col = list(
+    # Create a color palette that helps to visualize the broader stages, 
+    # since we have so many samples
+    Pathologic_Stage = c(
+      "Stage 0" = "#000000",
+      
+      "Stage I" = "#66C2A5",
+      "Stage IA" = "#41AE76",
+      "Stage IB" = "#238B45",
+      
+      "Stage II" = "#8DA0CB",
+      "Stage IIA" = "#4F81BD",
+      "Stage IIB" = "#225EA8",
+      
+      "Stage IIIA"= "#FC8D62",
+      "Stage IIIB"= "#F16913",
+      "Stage IIIC"= "#D94801",
+      
+      "Stage IV" = "#E7298A"
+      )
+    )
+  )
+
+# Save heatmap to PNG with adequate dimensions
+png(
+"SalaamRasheeda-Final Project Check-in Heatmap.png",
+width = 16000,
+height = 8000,
+res = 1200
+)
+
+# Generate heatmap
+Heatmap(
+  as.matrix(log_counts), # Because Heatmap() expects data in a matrix
+  name = "Counts",
+  top_annotation = ha_column,
+  show_row_names = TRUE,
+  row_names_gp = gpar(
+    fontsize = 12,
+    fontface = "bold"), # I want the common gene names emboldened
+  show_column_names = FALSE, # We have 1,000+ samples, so showing the 
+  # names would be very messy
+  cluster_columns = TRUE,
+  cluster_rows = TRUE,
+  column_title = "Samples",
+  row_title = "Genes",
+  heatmap_legend_param = list(title = "Count")
+)
+
+dev.off()
+```
+
+FINAL SUBMISSION ADDITION: UMAP Plot (ie, new plot type)
+```{r}
+# Explanation: For the final project, I want to generate a UMAP to see
+# whether samples with similar ESR1 expression also show similar
+# overall gene-expression patterns.
+
+# Identify samples that exist in the filtered metadata
+matched_samples <- count_barcodes %in%
+filtered_tcga_meta_data$barcode
+
+# Confirm that metadata and expression samples are in the same order
+all(
+  count_barcodes[matched_samples] ==
+    filtered_tcga_meta_data$barcode
+)
+
+# Keep only samples with valid stage information
+tcga_data_filtered <- tcga_data[, matched_samples]
+
+# Log-transform expression values
+tcga_data_log <- log10(tcga_data_filtered + 1)
+
+# Calculate variance for each gene
+gene_var <- apply(tcga_data_log, 1, var)
+
+# Keep the 2,000 most variable genes
+top_genes <- names(
+  sort(gene_var, decreasing = TRUE)[1:2000]
+)
+
+# Subset data to the most variable genes
+tcga_top <- tcga_data_log[top_genes, ]
+
+# Transpose so rows = samples and columns = genes
+expr_matrix <- t(as.matrix(tcga_top))
+
+# Run PCA
+pca_res <- prcomp(
+  expr_matrix,
+  center = TRUE,
+  scale. = TRUE
+)
+
+# Set seed for reproducibility since UMAP
+# coordinates can change at each run
+set.seed(131)
+
+# Run UMAP
+umap_res <- umap(
+  pca_res$x[, 1:50],
+  n_neighbors = 15,
+  min_dist = 0.3
+)
+
+# Create data frame containing UMAP coordinates
+umap_df <- data.frame(
+  UMAP1 = umap_res[, 1],
+  UMAP2 = umap_res[, 2]
+)
+
+# Add ESR1 expression values for the samples included in the UMAP
+# Log transform, as with heatmap
+umap_df$ESR1 <- log10(esr1_numeric[matched_samples] + 1)
+
+# Create ESR1 UMAP
+esr1_umap <- ggplot(
+  umap_df,
+  aes(UMAP1, UMAP2, color = ESR1)
+  ) +
+  geom_point(size = 3) +
+  scale_color_viridis_c() +
+  theme_classic() +
+  labs(
+    title = "UMAP Colored by ESR1 Expression",
+    x = "UMAP 1",
+    y = "UMAP 2",
+    color = "ESR1 Expression\n(log10-transformed)"
+    ) +
+  theme(plot.title = element_text(face = "bold",
+                                  hjust = 0.5))
+
+# Save plot
+ggsave(
+  filename = "SalaamRasheeda-FinalProject-ESR1_UMAP.png",
+  plot = esr1_umap,
+  width = 10,
+  height = 7,
+  dpi = 300
+  )
+```
+
+
+FINAL SUBMISSION ADDITION: Summary statistics (ajcc_pathologic_stage and age_at_diagnosis)
+
+```{r}
+# Explanation: For the final project, I also want to generate 
+# summary statistics for my pahtologic stage covariate, and 
+# for age at diagnosis
+
+# Pathologic stage is a categorical variable
+# so we can get counts and percentages for each stage, instead...
+path_stage_summary_stats <- filtered_tcga_meta_data %>%
+  count(ajcc_pathologic_stage) %>%
+  mutate(
+    Percent = round(100 * n / sum(n), 1)
+  )
+
+path_stage_summary_stats
+
+# Aside from filtering for NAs below, check for any unexpected age
+# values that we'd want to filter out
+unique(tcga_meta_data$age_at_diagnosis)
+
+# Convert ages from days to years
+years_old <- tcga_meta_data$age_at_diagnosis/365.25
+
+age_summary_stats <- data.frame(
+  mean = mean(years_old, na.rm = TRUE),
+  median = median(years_old, na.rm = TRUE),
+  sd = sd(years_old, na.rm = TRUE),
+  min = min(years_old, na.rm = TRUE),
+  max = max(years_old, na.rm = TRUE)
+)
+
+# Round the final values for relevance
+round(age_summary_stats, 1)
+```
+
