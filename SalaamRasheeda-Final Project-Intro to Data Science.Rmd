@@ -54,6 +54,12 @@ summary_stats <- tibble(expression = esr1_numeric) %>% # Create data frame
   )
 
 summary_stats # Return the statistical data
+
+# Create a summary stats table
+knitr::kable(
+  summary_stats,
+  caption = "Summary statistics for ESR1 expression."
+)
 ```
 
 3)  **Visualization**
@@ -61,7 +67,10 @@ summary_stats # Return the statistical data
 <!-- -->
 
 ```{r}
-# Explanation: I want a function to create the histogram, scatter, and violin plots. Since each plot function has a lot of similar data, and we're only working in this file, we can create a function that generates all 3 plots.
+# Explanation: I want a function to create the histogram, scatter,
+# and violin plots. Since each plot function has a lot of similar
+# data, and we're only working in this file, we can create a 
+# function that generates all 3 plots.
 
 library(ggpubr) # Since not part of the tidyverse, and we need ggarrange() below
 
@@ -219,7 +228,7 @@ create_plots <- function(first_gene_expression,
 }
 ```
 
-#'s 3A. through 3C.
+Create histogram, scatter, and violin plots...
 
 ```{r}
 # Explanation: Now, I need to call the function with the data for each plot to
@@ -247,7 +256,7 @@ ggsave(
 )
 ```
 
-3D. Heatmap Analysis
+3D. **Heatmap Analysis**
 
 ```{r}
 # Explanation: We have over 1,000 samples, so the heatmap will look busy. 
@@ -352,7 +361,8 @@ Heatmap(
 dev.off()
 ```
 
-FINAL SUBMISSION ADDITION: UMAP Plot (ie, new plot type)
+**FINAL SUBMISSION ADDITION: UMAP Plot (ie, new plot type)**
+
 ```{r}
 # Explanation: For the final project, I want to generate a UMAP to see
 # whether samples with similar ESR1 expression also show similar
@@ -443,8 +453,7 @@ ggsave(
   )
 ```
 
-
-FINAL SUBMISSION ADDITION: Summary statistics (ajcc_pathologic_stage and age_at_diagnosis)
+**FINAL SUBMISSION ADDITION: Summary statistics (ajcc_pathologic_stage and age_at_diagnosis)**
 
 ```{r}
 # Explanation: For the final project, I also want to generate 
@@ -460,6 +469,12 @@ path_stage_summary_stats <- filtered_tcga_meta_data %>%
   )
 
 path_stage_summary_stats
+
+# Create a table
+knitr::kable(
+path_stage_summary_stats,
+caption = "Distribution of samples by pathologic stage."
+)
 
 # Aside from filtering for NAs below, check for any unexpected age
 # values that we'd want to filter out
@@ -478,5 +493,10 @@ age_summary_stats <- data.frame(
 
 # Round the final values for relevance
 round(age_summary_stats, 1)
-```
 
+# Create table
+knitr::kable(
+  round(age_summary_stats, 1),
+  caption = "Summary statistics for age at diagnosis."
+)
+```
